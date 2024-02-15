@@ -10,8 +10,8 @@ newGame();
 
 function newGame() {
     state = {
-        // phase: 'aiming',//in flight or celebrating
-        // CurrentPlayer: 1,
+        phase: 'celebrating',//in flight or celebrating
+        CurrentPlayer: 1,
         // bomb: {
         //     x: undefined,
         //     y: undefined,
@@ -46,8 +46,8 @@ function draw() {
     drawBackground();
     drawBackgroundBuildings();
     drawBuildings();
-   // drawGorilla(1);
-   // drawGorilla(2);
+    drawGorilla(1);
+    drawGorilla(2);
    // drawBomb();
     //restore coordinate system
     ctx.restore();
@@ -163,6 +163,122 @@ function drawBuildings(){
 });
 }
 
-// function drawGorilla(){};
-// function drawGorilla(){};
+function drawGorilla(player){
+    ctx.save();
+
+    const building = 
+        player === 1
+        ? state.buildings.at(1) //second building
+        : state.buildings.at(-2); //second last building
+
+    ctx.translate(building.x + building.width/2, building.height);
+
+    drawGorillaBody();
+    drawGorillaLeftArm();
+    drawGorillaRightArm();
+    drawGorillaFace();
+
+    ctx.restore();
+}
+
+function drawGorillaBody() {
+    ctx.fillStyle = "black";
+    
+    ctx.beginPath();
+    ctx.moveTo(0, 15);
+    ctx.lineTo(-7, 0);
+    ctx.lineTo(-20, 0);
+    ctx.lineTo(-17, 18);
+    ctx.lineTo(-20, 44);
+
+    ctx.lineTo(-11, 77);
+    ctx.lineTo(0, 84);
+    ctx.lineTo(11, 77);
+
+    ctx.lineTo(20, 44);
+    ctx.lineTo(17, 18);
+    ctx.lineTo(20, 0);
+    ctx.lineTo(7, 0);
+    ctx.fill();
+}
+
+function drawGorillaLeftArm(player) {
+
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 18;
+
+    ctx.beginPath();
+    ctx.moveTo(-14, 50);
+
+    if(state.phase === "aiming" && state.currentPlayer === 1 && player === 1){
+        ctx.quadraticCurveTo(-44, 63, -28, 107);
+    }else if(state.phase === "celebrating" && state.currentPlayer === player){
+        ctx.quadraticCurveTo(-44, 63, -28, 107);
+    }else{
+        ctx.quadraticCurveTo(-44, 45, -28, 12);
+    }
+
+    ctx.stroke();
+}
+
+function drawGorillaRightArm(player) {
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 18;
+
+    ctx.beginPath();
+    ctx.moveTo(+14, 50);
+
+    if(state.phase === "aiming" && state.currentPlayer === 2 && player === 2){
+        ctx.quadraticCurveTo(+44, 63, +28, 107);
+    }else if(state.phase === "celebrating" && state.currentPlayer === player){
+        ctx.quadraticCurveTo(+44, 63, +28, 107);
+    }else{
+        ctx.quadraticCurveTo(+44, 45, +28, 12);
+    }
+
+    ctx.stroke();
+}
+
+function drawGorillaFace(player) {
+    //face
+    ctx.fillStyle = "lightgrey";
+    ctx.beginPath();
+    ctx.arc(0, 63, 9, 0, Math.PI * 2);
+    ctx.moveTo(-3.5, 70);
+    ctx.arc(-3.5, 70, 4, 0, Math.PI * 2);
+    ctx.moveTo(3.5, 70);
+    ctx.arc(3.5, 70, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    //eyes
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(-3.5, 70, 1.4, 0, Math.PI * 2);
+    ctx.moveTo(3.5, 70);
+    ctx.arc(3.5, 70, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 1.4;
+
+    //nose
+    ctx.beginPath();
+    ctx.moveTo(-3.5, 66.5);
+    ctx.lineTo(-1.5, 65);
+    ctx.moveTo(3.5, 66.5);
+    ctx.lineTo(1.5, 65);
+    ctx.stroke();
+
+    //mouth
+    ctx.beginPath();
+    if(state.phase === "celebrating" && state.currentPlayer === player){
+        ctx.moveTo(-5, 60);
+        ctx.quadraticCurveTo(0, 56, 5, 60);
+    }else{
+        ctx.moveTo(-5, 56);
+        ctx.quadraticCurveTo(0, 60, 5, 56);
+    }
+    ctx.stroke();
+}
+
 // function drawBomb(){};
