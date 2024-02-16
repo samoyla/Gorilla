@@ -1,27 +1,47 @@
+//state of the game
 let state = {};
 
+letisDragging = false;
+let dragStartX = undefined;
+let dragStartY = undefined;
+let previousAnimationTimestamp = undefined;
+
+//the main canvas element and its drawing context
 const canvas = document.getElementById('game'); // Get the canvas element
 canvas.width = window.innerWidth; // Set canvas width to window width
 canvas.height = window.innerHeight; // Set canvas height to window height
 const ctx = canvas.getContext("2d");
 
-ctx.fillStyle = "#4A3CC68"
+// left info panel
+const angle1DOM = document.querySelector("#info-left .angle");
+const velocity1DOM = document.querySelector("#info-left .velocity");
+
+// right info panel
+const angle2DOM = document.querySelector("#info-right .angle");
+const velocity2DOM = document.querySelector("#info-right .velocity");
+
+// the bomb's grab area
+const bombGrabAreaDOM = document.getElementById('bomb-grab-area');
+
 newGame();
 
 function newGame() {
     state = {
-        phase: 'celebrating',//in flight or celebrating
+        phase: 'aiming',//in flight or celebrating
         CurrentPlayer: 1,
-        // bomb: {
-        //     x: undefined,
-        //     y: undefined,
-        //     rotation: 0,
-        //     velocity: {x: 0, y: 0},    
-        // },
+        bomb: {
+            x: undefined,
+            y: undefined,
+            rotation: 0,
+            velocity: {x: 0, y: 0},    
+        },
+
         //Buildings
         backgroundBuildings: [],
         buildings: [],
         blastHoles: [],
+
+        scale: 1,
     };
 
     for (let i = 0; i < 11; i++) {
@@ -32,7 +52,8 @@ function newGame() {
         generateBuilding(i);
     }
 
-    //initializeBombPosition();
+    calculateScale();
+    initializeBombPosition();
 
     draw();
 }
@@ -42,32 +63,66 @@ function draw() {
     //flip coordinate system upside down
     ctx.translate(0, window.innerHeight);
     ctx.scale(1, -1);
+    ctx.scale(state.scale, state.scale);
     //draw scene
     drawBackground();
     drawBackgroundBuildings();
     drawBuildings();
     drawGorilla(1);
     drawGorilla(2);
-   // drawBomb();
+    drawBomb();
+
     //restore coordinate system
     ctx.restore();
 }
 
-// function throwBombs() {
+function drawBomb() {
+    ctx.save();
+    ctx.translate(state.bomb.x, state.bomb.y);
 
-// }
+    if(state.phase === "aiming"){
+        //move the bomb with the mouse
+        ctx.translate(-state.bomb.velocity.x / 6.25, -state.bomb.velocity.y / 6.25);
+
+        //draw throwing trajectory
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.setLineDash([3, 8]);
+        ctx.lineWidth = 3;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(state.bomb.velocity.x, state.bomb.velocity.y);
+        ctx.stroke();
+    }
+    //draw circle
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    //restore coordinate system
+    ctx.restore();
+}
 
 // function animate(timestamp) {
 
 // }
 
+window.addEventListener('resize', () => {  
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    calculateScale();
+    initializeBombPosition();
+    draw();
+});
+
 function drawBackground() {
-    const gradient = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+    const gradient = ctx.createLinearGradient(0, 0, 0, window.innerHeight/state.scale);
     gradient.addColorStop(1, '#F8B885');
     gradient.addColorStop(0, '#FFC28E');
     //draw sky
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.fillRect(0, 0, window.innerWidth/state.scale, window.innerHeight/state.scale);
     //draw moon
     ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
     ctx.beginPath();
@@ -117,8 +172,36 @@ function generateBuilding(index){
 
     state.buildings.push({x, width, height, lightsOn});
 };
+function calculateScale(){
+    const lastBuilding = state.buildings.at(-1);
+    const totalWidthOfTheCity = lastBuilding.x + lastBuilding.width;
 
-//function initializeBombPosition(){};
+    state.scale = window.innerWidth / totalWidthOfTheCity;
+};
+
+function initializeBombPosition(){
+    const building = 
+        state.CurrentPlayer === 1
+        ? state.buildings.at(1) //second building
+        : state.buildings.at(-2); //second last building
+        
+    const gorillaX = building.x + building.width / 2;
+    const gorillaY = building.height;
+
+    const gorillaHandOffSetX = state.CurrentPlayer === 1 ? -28 : 28;
+    const gorillaHandOffSetY = 107;
+
+    state.bomb.x = gorillaX + gorillaHandOffSetX;
+    state.bomb.y = gorillaY + gorillaHandOffSetY;
+    state.bomb.velocity = {x: 0, y: 0};
+
+    //initialize the positiom of the grab area in HTML
+    const grabAreaRadius = 15;
+    const left = state.bomb.x * state.scale - grabAreaRadius;
+    const bottom = state.bomb.y * state.scale - grabAreaRadius;
+    bombGrabAreaDOM.style.left = `${left}px`;
+    bombGrabAreaDOM.style.bottom = `${bottom}px`;
+};
 
 function drawBackgroundBuildings(){
     state.backgroundBuildings.forEach(building => {
@@ -160,7 +243,7 @@ function drawBuildings(){
             }            
         }
     }
-});
+    });
 }
 
 function drawGorilla(player){
@@ -174,9 +257,9 @@ function drawGorilla(player){
     ctx.translate(building.x + building.width/2, building.height);
 
     drawGorillaBody();
-    drawGorillaLeftArm();
-    drawGorillaRightArm();
-    drawGorillaFace();
+    drawGorillaLeftArm(player);
+    drawGorillaRightArm(player);
+    drawGorillaFace(player);
 
     ctx.restore();
 }
@@ -210,9 +293,13 @@ function drawGorillaLeftArm(player) {
     ctx.beginPath();
     ctx.moveTo(-14, 50);
 
-    if(state.phase === "aiming" && state.currentPlayer === 1 && player === 1){
-        ctx.quadraticCurveTo(-44, 63, -28, 107);
-    }else if(state.phase === "celebrating" && state.currentPlayer === player){
+    if(state.phase === "aiming" && state.CurrentPlayer === 1 && player === 1){
+        ctx.quadraticCurveTo(
+            -44,
+            63,
+            -28 - state.bomb.velocity.x / 6.25,
+            107 - state.bomb.velocity.y / 6.25);
+    }else if(state.phase === "celebrating" && state.CurrentPlayer === player){
         ctx.quadraticCurveTo(-44, 63, -28, 107);
     }else{
         ctx.quadraticCurveTo(-44, 45, -28, 12);
@@ -226,14 +313,18 @@ function drawGorillaRightArm(player) {
     ctx.lineWidth = 18;
 
     ctx.beginPath();
-    ctx.moveTo(+14, 50);
+    ctx.moveTo(14, 50);
 
-    if(state.phase === "aiming" && state.currentPlayer === 2 && player === 2){
-        ctx.quadraticCurveTo(+44, 63, +28, 107);
-    }else if(state.phase === "celebrating" && state.currentPlayer === player){
-        ctx.quadraticCurveTo(+44, 63, +28, 107);
+    if(state.phase === "aiming" && state.CurrentPlayer === 2 && player === 2){
+        ctx.quadraticCurveTo(
+            44,
+            63,
+            28 - state.bomb.velocity.x / 6.25,
+            107 - state.bomb.velocity.y / 6.25);
+    }else if(state.phase === "celebrating" && state.CurrentPlayer === player){
+        ctx.quadraticCurveTo(44, 63, 28, 107);
     }else{
-        ctx.quadraticCurveTo(+44, 45, +28, 12);
+        ctx.quadraticCurveTo(44, 45, 28, 12);
     }
 
     ctx.stroke();
@@ -241,7 +332,7 @@ function drawGorillaRightArm(player) {
 
 function drawGorillaFace(player) {
     //face
-    ctx.fillStyle = "lightgrey";
+    ctx.fillStyle = "lightgray";//settings.mode === "dark" ? "gray" : 
     ctx.beginPath();
     ctx.arc(0, 63, 9, 0, Math.PI * 2);
     ctx.moveTo(-3.5, 70);
@@ -271,7 +362,7 @@ function drawGorillaFace(player) {
 
     //mouth
     ctx.beginPath();
-    if(state.phase === "celebrating" && state.currentPlayer === player){
+    if(state.phase === "celebrating" && state.CurrentPlayer === player){
         ctx.moveTo(-5, 60);
         ctx.quadraticCurveTo(0, 56, 5, 60);
     }else{
@@ -281,4 +372,57 @@ function drawGorillaFace(player) {
     ctx.stroke();
 }
 
-// function drawBomb(){};
+// event handlers
+bombGrabAreaDOM.addEventListener('mousedown', (e) => {
+    if(state.phase === "aiming"){
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+
+        document.body.style.cursor = "grabbing";
+    }
+});
+
+window.addEventListener('mousemove', (e) => {
+    if(isDragging){
+        let deltaX = e.clientX - dragStartX;
+        let deltaY = e.clientY - dragStartY;
+        
+        state.bomb.velocity.x = -deltaX;
+        state.bomb.velocity.y = deltaY;
+        setInfo(deltaX, deltaY);
+        
+        draw();
+    }
+});
+
+window.addEventListener('mouseup', () => {
+    if(isDragging){
+        isDragging = false;
+        document.body.style.cursor = "default";
+
+        throwBomb();
+    }
+});
+
+function setInfo(deltaX, deltaY){
+    const hypotenuse = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+    const angleInRadius = Math.asin(deltaY / hypotenuse);
+    const angleInDegrees = angleInRadius * 180 / Math.PI;
+
+    if(state.CurrentPlayer === 1){
+        angle1DOM.innerText = Math.round(angleInDegrees);
+        velocity1DOM.innerText = Math.round(hypotenuse);
+    }else{
+        angle2DOM.innerText = Math.round(angleInDegrees);
+        velocity2DOM.innerText = Math.round(hypotenuse);
+    }
+}
+
+function throwBomb(){
+    state.phase = "in flight";
+    previousAnimationTimestamp = undefined;
+    requestAnimationFrame(animate);
+
+   
+};
